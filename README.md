@@ -355,5 +355,5 @@ erp_iglesias
 
 # Autor
 
-Juan José
+Miguel Angel Rivera Lozano
 Proyecto académico — Arquitectura de Software
