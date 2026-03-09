@@ -127,46 +127,68 @@ Esto implica que el flujo correcto del sistema requiere:
 
 ### Church
 
-* id
-* name
+| Campo | Tipo | Descripción |
+|------|------|-------------|
+| id | Long | Identificador único de la iglesia |
+| name | String | Nombre de la iglesia |
+
+---
 
 ### Person
 
-* id
-* name
-* lastName
-* document
-* phone
-* email
-* church_id
+| Campo | Tipo | Descripción |
+|------|------|-------------|
+| id | Long | Identificador único de la persona |
+| name | String | Nombre de la persona |
+| lastName | String | Apellido de la persona |
+| document | String | Número de documento |
+| phone | String | Número de teléfono |
+| email | String | Correo electrónico |
+| church_id | Long | Identificador de la iglesia asociada |
+
+---
 
 ### Course
 
-* id
-* name
-* description
-* church_id
+| Campo | Tipo | Descripción |
+|------|------|-------------|
+| id | Long | Identificador único del curso |
+| name | String | Nombre del curso |
+| description | String | Descripción del curso |
+| church_id | Long | Iglesia a la que pertenece el curso |
+
+---
 
 ### Enrollment
 
-* id
-* person_id
-* course_id
+| Campo | Tipo | Descripción |
+|------|------|-------------|
+| id | Long | Identificador de la inscripción |
+| person_id | Long | Persona inscrita |
+| course_id | Long | Curso en el que se inscribe |
+
+---
 
 ### Offering
 
-* id
-* amount
-* date
-* church_id
+| Campo | Tipo | Descripción |
+|------|------|-------------|
+| id | Long | Identificador de la ofrenda |
+| amount | Decimal | Valor de la ofrenda |
+| date | Date | Fecha de la ofrenda |
+| church_id | Long | Iglesia a la que pertenece la ofrenda |
+
+---
 
 ### Payment
 
-* id
-* type
-* amount
-* status
-* attempts
+| Campo | Tipo | Descripción |
+|------|------|-------------|
+| id | Long | Identificador del pago |
+| type | String | Tipo de pago (ofrenda o inscripción) |
+| amount | Decimal | Valor del pago |
+| status | String | Estado del pago |
+| attempts | Integer | Número de intentos del pago |
 
 ---
 
