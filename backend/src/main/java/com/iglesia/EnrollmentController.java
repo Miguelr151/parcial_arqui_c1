@@ -1,5 +1,6 @@
 package com.iglesia;
 
+import com.iglesia.factory.PaymentFactory;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -11,6 +12,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/enrollments")
 public class EnrollmentController {
+
     private final EnrollmentRepository enrollmentRepository;
     private final PersonRepository personRepository;
     private final CourseRepository courseRepository;
@@ -32,14 +34,17 @@ public class EnrollmentController {
     @PreAuthorize("hasRole('ADMIN') or hasRole('CLIENT')")
     @PostMapping
     public EnrollmentResponse create(@RequestBody EnrollmentRequest request) {
-        Church church = requireChurch();
+
+        Church church = ChurchUtils.requireChurch(churchRepository);
+
         Person person = personRepository.findById(request.personId())
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Persona no encontrada"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Persona no encontrada"));
+
         Course course = courseRepository.findById(request.courseId())
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Curso no encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Curso no encontrado"));
 
         if (!person.getChurch().getId().equals(church.getId())
-            || !course.getChurch().getId().equals(church.getId())) {
+                || !course.getChurch().getId().equals(church.getId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Datos no pertenecen a la iglesia");
         }
 
@@ -47,12 +52,16 @@ public class EnrollmentController {
         enrollment.setPerson(person);
         enrollment.setCourse(course);
         enrollment.setStatus(EnrollmentStatus.PENDIENTE);
+
         enrollmentRepository.save(enrollment);
 
-        Payment payment = new Payment();
-        payment.setType(PaymentType.INSCRIPCION_CURSO);
-        payment.setAmount(course.getPrice());
-        payment.setReferenceId(enrollment.getId());
+        // Factory Pattern aplicado aquí
+        Payment payment = PaymentFactory.createPayment(
+                PaymentType.INSCRIPCION_CURSO,
+                course.getPrice(),
+                enrollment.getId()
+        );
+
         paymentRepository.save(payment);
 
         enrollment.setPaymentId(payment.getId());
@@ -64,53 +73,55 @@ public class EnrollmentController {
     @PreAuthorize("hasRole('ADMIN') or hasRole('CLIENT')")
     @GetMapping
     public List<EnrollmentResponse> list() {
-        Church church = requireChurch();
-        return enrollmentRepository.findAllByPersonChurchId(church.getId())
-            .stream()
-            .map(enrollment -> {
-                Payment payment = null;
-                if (enrollment.getPaymentId() != null) {
-                    payment = paymentRepository.findById(enrollment.getPaymentId()).orElse(null);
-                }
-                return EnrollmentResponse.from(enrollment, payment);
-            })
-            .toList();
-    }
 
-    private Church requireChurch() {
-        return churchRepository.findAll()
-            .stream()
-            .findFirst()
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Debe registrar una iglesia primero"));
+        Church church = ChurchUtils.requireChurch(churchRepository);
+
+        return enrollmentRepository.findAllByPersonChurchId(church.getId())
+                .stream()
+                .map(enrollment -> {
+
+                    Payment payment = null;
+
+                    if (enrollment.getPaymentId() != null) {
+                        payment = paymentRepository.findById(enrollment.getPaymentId()).orElse(null);
+                    }
+
+                    return EnrollmentResponse.from(enrollment, payment);
+
+                })
+                .toList();
     }
 
     public record EnrollmentRequest(
-        @NotNull Long personId,
-        @NotNull Long courseId
+            @NotNull Long personId,
+            @NotNull Long courseId
     ) {}
 
     public record EnrollmentResponse(
-        Long id,
-        Long personId,
-        String personName,
-        Long courseId,
-        String courseName,
-        String status,
-        Long paymentId,
-        String paymentStatus
+            Long id,
+            Long personId,
+            String personName,
+            Long courseId,
+            String courseName,
+            String status,
+            Long paymentId,
+            String paymentStatus
     ) {
+
         public static EnrollmentResponse from(Enrollment enrollment, Payment payment) {
+
             String personName = enrollment.getPerson().getFirstName() + " " + enrollment.getPerson().getLastName();
             String paymentStatus = payment == null ? null : payment.getStatus().name();
+
             return new EnrollmentResponse(
-                enrollment.getId(),
-                enrollment.getPerson().getId(),
-                personName,
-                enrollment.getCourse().getId(),
-                enrollment.getCourse().getName(),
-                enrollment.getStatus().name(),
-                enrollment.getPaymentId(),
-                paymentStatus
+                    enrollment.getId(),
+                    enrollment.getPerson().getId(),
+                    personName,
+                    enrollment.getCourse().getId(),
+                    enrollment.getCourse().getName(),
+                    enrollment.getStatus().name(),
+                    enrollment.getPaymentId(),
+                    paymentStatus
             );
         }
     }

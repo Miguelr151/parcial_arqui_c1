@@ -1,138 +1,242 @@
-# Cambios Implementados en la Arquitectura
+# ERP Iglesias — Mejoras en la Arquitectura
 
-Este documento describe los cambios realizados en el sistema ERP Iglesias con el objetivo de mejorar la mantenibilidad, escalabilidad y calidad del código mediante la aplicación de principios SOLID y patrones de diseño.
+## Descripción General
 
----
+Este documento describe las mejoras arquitectónicas implementadas en el sistema **ERP Iglesias**.
+El objetivo de estos cambios fue mejorar la **mantenibilidad**, **organización del código** y **escalabilidad** mediante la aplicación de **principios SOLID** y **patrones de diseño**.
 
-# Cambio 1 — Uso de DTO para respuestas de API
-
-## Principio aplicado
-SRP — Single Responsibility Principle
-
-## Problema identificado
-
-Las entidades del dominio estaban siendo utilizadas directamente en las respuestas de los controladores, lo que generaba acoplamiento entre la capa de persistencia y la capa de presentación.
-
-## Solución
-
-Se implementó el uso de **DTOs (Data Transfer Objects)** para desacoplar la representación de datos utilizada en la API.
-
-## Archivo donde se aplica
- 
- PersonResponse.java
-
-
-## Beneficios
-
-- desacoplamiento entre capas
-- mayor control sobre los datos expuestos
-- mejor mantenibilidad
+Todos los cambios fueron implementados **sin afectar el funcionamiento del sistema**.
 
 ---
 
-# Cambio 2 — Uso de Repository Pattern
+# Resumen de Cambios
 
-## Patrón aplicado
-
-Repository Pattern
-
-## Problema identificado
-
-El acceso a datos debe centralizarse en repositorios para separar la lógica de persistencia de la lógica de negocio.
-
-## Solución
-
-Se utilizaron repositorios de Spring Data JPA para manejar el acceso a la base de datos.
-
-## Archivos donde se aplica
- PersonRepository.java
- CourseRepository.java
- EnrollmentRepository.java
- OfferingRepository.java
- PaymentRepository.java
-
-
-## Beneficios
-
-- separación de responsabilidades
-- acceso a datos más limpio
-- código más mantenible
+| Cambio                    | Descripción                                                                 | Principio / Patrón              |
+| ------------------------- | --------------------------------------------------------------------------- | ------------------------------- |
+| Service Layer para Cursos | Se agregó una capa de servicios para manejar la lógica de negocio de cursos | Single Responsibility Principle |
+| Refactor del Controlador  | Los controladores ahora dependen de servicios en lugar de repositorios      | Dependency Inversion Principle  |
+| ChurchUtils               | Centralización de lógica repetida                                           | DRY                             |
+| PersonValidator           | Separación de la lógica de validación de los controladores                  | Single Responsibility Principle |
+| PaymentFactory            | Centralización de la creación de objetos Payment                            | Factory Pattern                 |
 
 ---
 
-# Cambio 3 — Implementación de seguridad con JWT
+# 1. Implementación de Service Layer para Courses
 
 ## Principio aplicado
 
-DIP — Dependency Inversion Principle
+**Single Responsibility Principle (SRP)**
 
-## Problema identificado
+## Problema
 
-Los endpoints del sistema requerían protección para evitar accesos no autorizados.
+El controlador `CourseController` contenía:
+
+* lógica de negocio
+* acceso directo al repositorio
+
+Esto generaba **alto acoplamiento entre la capa de presentación y la capa de persistencia**, lo que dificulta el mantenimiento y las pruebas.
 
 ## Solución
 
-Se implementó autenticación basada en **JWT (JSON Web Token)** mediante Spring Security.
+Se implementó una **capa de servicios** para manejar la lógica de negocio relacionada con los cursos.
 
-## Archivos donde se aplica
- SecurityConfig.java
- JwtAuthFilter.java
- JwtService.java
- AuthUserDetailsService.java
+### Archivo creado
 
+```
+CourseService.java
+```
 
 ## Beneficios
 
-- seguridad en los endpoints
-- autenticación sin estado
-- escalabilidad del sistema
+* mejor separación de responsabilidades
+* mayor organización del código
+* facilita las pruebas unitarias
+* controladores más simples
 
 ---
 
-# Cambio 4 — Modelo Multi-Tenant basado en Iglesia
+# 2. Refactor del Controlador para usar Service Layer
 
-## Patrón aplicado
+## Principio aplicado
 
-Multi-Tenant Architecture
+**Dependency Inversion Principle (DIP)**
 
-## Problema identificado
+## Problema
 
-El sistema debía soportar múltiples iglesias utilizando la misma aplicación.
+Los controladores dependían directamente de los repositorios.
+
+Esto rompe la arquitectura por capas y aumenta el acoplamiento.
 
 ## Solución
 
-Se implementó un modelo donde cada registro pertenece a una iglesia específica.
+El `CourseController` fue modificado para utilizar `CourseService` en lugar de acceder directamente al repositorio.
 
-Esto se implementa utilizando el método:
+### Antes
 
-```java
-Church church = requireChurch();
+```
+CourseController → CourseRepository
+```
 
-Beneficios
+### Después
 
-aislamiento de datos
+```
+CourseController → CourseService → CourseRepository
+```
 
-escalabilidad organizacional
+## Beneficios
 
-seguridad por organización
+* menor acoplamiento
+* arquitectura más limpia
+* mayor facilidad para modificar la lógica de negocio
 
-Cambio 5 — Simulación de pasarela de pagos
-Patrón aplicado
+---
 
-Strategy Pattern (conceptual)
+# 3. Centralización de la lógica requireChurch()
 
-Problema identificado
+## Principio aplicado
 
-El sistema requería procesar pagos sin depender de proveedores externos.
+**DRY — Don't Repeat Yourself**
 
-Solución
+## Problema
 
-Se implementó un sistema de estados para simular pagos.
+El método `requireChurch()` estaba duplicado en múltiples controladores.
 
-Estados disponibles:
+Esto genera:
 
-INICIADO
+* repetición de código
+* mayor costo de mantenimiento
+* riesgo de inconsistencias
 
-CONFIRMADO
+## Solución
 
-FALLIDO
+Se creó una clase utilitaria llamada **ChurchUtils** para centralizar esta lógica.
+
+### Archivo creado
+
+```
+ChurchUtils.java
+```
+
+## Beneficios
+
+* eliminación de código duplicado
+* mayor reutilización
+* controladores más simples
+
+---
+
+# 4. Implementación de PersonValidator
+
+## Principio aplicado
+
+**Single Responsibility Principle (SRP)**
+
+## Problema
+
+Las validaciones de datos estaban implementadas dentro de los controladores.
+
+Los controladores deberían encargarse únicamente de manejar las solicitudes HTTP.
+
+## Solución
+
+Se creó una clase dedicada para las validaciones:
+
+```
+PersonValidator.java
+```
+
+Esta clase es responsable de validar:
+
+* datos de personas
+* campos obligatorios
+* consistencia de la información
+
+## Beneficios
+
+* validaciones centralizadas
+* controladores más limpios
+* reutilización de reglas de validación
+* mayor mantenibilidad
+
+---
+
+# 5. Implementación de PaymentFactory
+
+## Patrón aplicado
+
+**Factory Pattern**
+
+## Problema
+
+Los objetos `Payment` se creaban directamente en diferentes partes del sistema.
+
+Esto generaba:
+
+* duplicación de lógica de creación
+* estados iniciales inconsistentes
+* dificultad de mantenimiento
+
+## Solución
+
+Se implementó una **Factory** para centralizar la creación de objetos `Payment`.
+
+### Archivo creado
+
+```
+PaymentFactory.java
+```
+
+### Ejemplo conceptual
+
+```
+Payment payment = PaymentFactory.createPayment(...);
+```
+
+## Beneficios
+
+* centralización de la creación de objetos
+* inicialización consistente de pagos
+* mayor facilidad para extender el sistema con nuevos tipos de pago
+* mejor mantenibilidad
+
+---
+
+# Impacto Arquitectónico
+
+Estos cambios mejoran la arquitectura del sistema mediante:
+
+* mejor **separación de capas**
+* mayor **reutilización de código**
+* menor **acoplamiento**
+* mayor **facilidad para realizar pruebas**
+* mejor **mantenibilidad a largo plazo**
+
+---
+
+# Verificación Funcional
+
+Después de implementar los cambios:
+
+* se reconstruyó la aplicación
+* se realizaron pruebas funcionales
+* el sistema continuó funcionando correctamente
+
+Esto confirma que las mejoras arquitectónicas se implementaron **sin afectar el comportamiento existente del sistema**.
+
+---
+
+# Posibles Mejoras Futuras
+
+Algunas mejoras que podrían implementarse en el futuro incluyen:
+
+* incorporación de una **capa de DTO**
+* manejo global de excepciones (**Global Exception Handler**)
+* implementación de **pruebas de integración**
+* adopción de una estructura basada en **Domain Driven Design**
+* documentación de la API mediante **Swagger / OpenAPI**
+
+---
+
+# Autor
+
+Miguel Angel Rivera Lozano
